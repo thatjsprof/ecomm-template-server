@@ -6,9 +6,9 @@ import { success, error } from "../utils/response";
 import { validate } from "../middleware/validate";
 import { param } from "../utils/helpers";
 import {
-  initializePaystack,
-  verifyPaystack,
-  verifyPaystackWebhook,
+  initializeFlutterwave,
+  verifyFlutterwave,
+  verifyFlutterwaveWebhook,
   initializeKorapay,
   verifyKorapay,
   verifyKorapayWebhook,
@@ -23,7 +23,7 @@ const initSchema = z.object({
   orderId: z.string().min(1, "Order ID is required"),
 });
 
-router.post("/paystack", validate(initSchema), async (req, res) => {
+router.post("/flutterwave", validate(initSchema), async (req, res) => {
   try {
     const order = await orders().findOne({ where: { id: req.body.orderId } });
 
@@ -35,19 +35,21 @@ router.post("/paystack", validate(initSchema), async (req, res) => {
       return error(res, "Order already paid", 400);
     }
 
-    const reference = `PSK-${order.orderNumber}-${Date.now()}`;
+    const reference = `FLW-${order.orderNumber}-${Date.now()}`;
     const frontendUrl = siteConfig.frontendUrl;
 
-    const result = await initializePaystack({
+    const result = await initializeFlutterwave({
       email: order.customerEmail,
       amount: Number(order.total),
       reference,
-      callbackUrl: `${frontendUrl}/payment/success?provider=paystack&reference=${reference}`,
+      callbackUrl: `${frontendUrl}/payment/success?provider=flutterwave&reference=${encodeURIComponent(reference)}`,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
       metadata: { orderId: order.id, orderNumber: order.orderNumber },
     });
 
     order.paymentReference = result.reference;
-    order.paymentProvider = "paystack";
+    order.paymentProvider = "flutterwave";
     await orders().save(order);
 
     return success(res, {
@@ -56,7 +58,7 @@ router.post("/paystack", validate(initSchema), async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    return error(res, "Failed to initialize Paystack payment", 500);
+    return error(res, "Failed to initialize Flutterwave payment", 500);
   }
 });
 
@@ -101,12 +103,14 @@ router.get("/verify/:provider/:reference", async (req, res) => {
   try {
     const provider = param(req.params.provider);
     const reference = param(req.params.reference);
+    const transactionId =
+      typeof req.query.transaction_id === "string" ? req.query.transaction_id : undefined;
 
     let paid = false;
 
-    if (provider === "paystack") {
-      const data = await verifyPaystack(reference);
-      paid = data.status === "success";
+    if (provider === "flutterwave") {
+      const data = await verifyFlutterwave(reference, transactionId);
+      paid = data?.status === "successful";
     } else if (provider === "korapay") {
       const data = await verifyKorapay(reference);
       paid = data.status === "success";
@@ -126,19 +130,20 @@ router.get("/verify/:provider/:reference", async (req, res) => {
   }
 });
 
-router.post("/paystack/webhook", async (req: Request, res: Response) => {
+router.post("/flutterwave/webhook", async (req: Request, res: Response) => {
   try {
-    const signature = req.headers["x-paystack-signature"] as string;
-    const rawBody = (req as Request & { rawBody?: Buffer }).rawBody || JSON.stringify(req.body);
+    const signature = req.headers["verif-hash"] as string | undefined;
 
-    if (!verifyPaystackWebhook(rawBody, signature)) {
+    if (!verifyFlutterwaveWebhook(signature)) {
       return error(res, "Invalid signature", 401);
     }
 
     const event = req.body;
+    const status = event?.data?.status;
+    const reference = event?.data?.tx_ref as string | undefined;
 
-    if (event.event === "charge.success") {
-      await markOrderPaid(event.data.reference);
+    if (reference && status === "successful") {
+      await markOrderPaid(reference);
     }
 
     return success(res, { received: true });

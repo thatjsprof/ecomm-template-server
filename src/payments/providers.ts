@@ -11,6 +11,8 @@ interface InitPaymentParams {
   reference: string;
   callbackUrl: string;
   metadata?: Record<string, unknown>;
+  customerName?: string;
+  customerPhone?: string;
 }
 
 interface InitPaymentResult {
@@ -18,20 +20,34 @@ interface InitPaymentResult {
   reference: string;
 }
 
-export async function initializePaystack(params: InitPaymentParams): Promise<InitPaymentResult> {
-  const secret = process.env.PAYSTACK_SECRET_KEY;
+function flutterwaveSecret(): string {
+  const secret = process.env.FLUTTERWAVE_SECRET_KEY;
   if (!secret) {
-    throw new Error("PAYSTACK_SECRET_KEY is not set");
+    throw new Error("FLUTTERWAVE_SECRET_KEY is not set");
   }
+  return secret;
+}
+
+export async function initializeFlutterwave(params: InitPaymentParams): Promise<InitPaymentResult> {
+  const secret = flutterwaveSecret();
 
   const response = await axios.post(
-    "https://api.paystack.co/transaction/initialize",
+    "https://api.flutterwave.com/v3/payments",
     {
-      email: params.email,
-      amount: Math.round(params.amount * 100),
-      reference: params.reference,
-      callback_url: params.callbackUrl,
-      metadata: params.metadata,
+      tx_ref: params.reference,
+      amount: params.amount,
+      currency: siteConfig.currency,
+      redirect_url: params.callbackUrl,
+      customer: {
+        email: params.email,
+        name: params.customerName || params.email,
+        phonenumber: params.customerPhone,
+      },
+      customizations: {
+        title: siteConfig.name,
+        description: `Order payment`,
+      },
+      meta: params.metadata,
     },
     {
       headers: {
@@ -42,20 +58,29 @@ export async function initializePaystack(params: InitPaymentParams): Promise<Ini
   );
 
   return {
-    authorizationUrl: response.data.data.authorization_url,
-    reference: response.data.data.reference,
+    authorizationUrl: response.data.data.link,
+    reference: params.reference,
   };
 }
 
-export async function verifyPaystack(reference: string) {
-  const secret = process.env.PAYSTACK_SECRET_KEY;
-  if (!secret) {
-    throw new Error("PAYSTACK_SECRET_KEY is not set");
+/** Verify by Flutterwave transaction id, or fall back to tx_ref. */
+export async function verifyFlutterwave(reference: string, transactionId?: string) {
+  const secret = flutterwaveSecret();
+
+  if (transactionId) {
+    const response = await axios.get(
+      `https://api.flutterwave.com/v3/transactions/${transactionId}/verify`,
+      {
+        headers: { Authorization: `Bearer ${secret}` },
+      }
+    );
+    return response.data.data;
   }
 
   const response = await axios.get(
-    `https://api.paystack.co/transaction/verify/${reference}`,
+    "https://api.flutterwave.com/v3/transactions/verify_by_reference",
     {
+      params: { tx_ref: reference },
       headers: { Authorization: `Bearer ${secret}` },
     }
   );
@@ -63,14 +88,13 @@ export async function verifyPaystack(reference: string) {
   return response.data.data;
 }
 
-export function verifyPaystackWebhook(body: Buffer | string, signature: string): boolean {
-  const secret = process.env.PAYSTACK_WEBHOOK_SECRET || process.env.PAYSTACK_SECRET_KEY;
-  if (!secret) {
+/** Flutterwave sends your configured secret hash in the `verif-hash` header. */
+export function verifyFlutterwaveWebhook(signature: string | undefined): boolean {
+  const secretHash = process.env.FLUTTERWAVE_SECRET_HASH;
+  if (!secretHash || !signature) {
     return false;
   }
-
-  const hash = crypto.createHmac("sha512", secret).update(body).digest("hex");
-  return hash === signature;
+  return signature === secretHash;
 }
 
 export async function initializeKorapay(params: InitPaymentParams): Promise<InitPaymentResult> {

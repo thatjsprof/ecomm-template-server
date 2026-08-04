@@ -21,7 +21,7 @@ export const createOrderSchema = z.object({
     )
     .min(1, "Cart is empty"),
   shippingAddress: shippingAddressSchema,
-  paymentProvider: z.enum(["paystack", "korapay"]),
+  paymentProvider: z.enum(["flutterwave", "korapay"]),
   couponCode: z.string().optional(),
   shippingOptionId: z.string().min(1, "Shipping option is required"),
   saveAddress: z.boolean().optional(),

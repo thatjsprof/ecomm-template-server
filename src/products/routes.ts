@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { Not } from "typeorm";
 import { AppDataSource } from "../data-source";
-import { Product, ProductVariant } from "../entities";
+import { OrderItem, Product, ProductVariant } from "../entities";
 import { success, error } from "../utils/response";
 import { slugify, param } from "../utils/helpers";
 import { validate } from "../middleware/validate";
@@ -33,7 +33,15 @@ async function syncVariants(
 
   for (const old of existing) {
     if (!keepIds.includes(old.id)) {
-      await variants().remove(old);
+      const ordered = await AppDataSource.getRepository(OrderItem).count({
+        where: { variantId: old.id },
+      });
+      if (ordered > 0) {
+        old.active = false;
+        await variants().save(old);
+      } else {
+        await variants().remove(old);
+      }
     }
   }
 
@@ -275,14 +283,30 @@ router.put(
 
 router.delete("/:id", authenticate, requireAdmin, async (req, res) => {
   try {
-    const existing = await products().findOne({ where: { id: param(req.params.id) } });
+    const id = param(req.params.id);
+    const existing = await products().findOne({ where: { id } });
     if (!existing) {
       return error(res, "Product not found", 404);
     }
 
+    // Past orders keep a FK to the product/variant — hard delete would violate that.
+    const orderItemCount = await AppDataSource.getRepository(OrderItem).count({
+      where: { productId: id },
+    });
+
+    if (orderItemCount > 0) {
+      existing.active = false;
+      await products().save(existing);
+      return success(res, {
+        message:
+          "Product hidden from the shop because it appears in past orders. Order history is preserved.",
+        archived: true,
+      });
+    }
+
     await products().remove(existing);
 
-    return success(res, { message: "Product deleted" });
+    return success(res, { message: "Product deleted", archived: false });
   } catch (err) {
     console.error(err);
     return error(res, "Failed to delete product", 500);
