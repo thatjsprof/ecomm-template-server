@@ -7,7 +7,12 @@ export function validate(schema: ZodSchema, source: "body" | "query" | "params" 
     const result = schema.safeParse(req[source]);
 
     if (!result.success) {
-      const message = result.error.errors.map((e) => e.message).join(", ");
+      const message = result.error.errors
+        .map((e) => {
+          const path = e.path.length ? `${e.path.join(".")}: ` : "";
+          return `${path}${e.message}`;
+        })
+        .join(", ");
       return error(res, message, 400);
     }
 

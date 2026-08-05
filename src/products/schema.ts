@@ -3,7 +3,7 @@ import { z } from "zod";
 export const variantSchema = z.object({
   id: z.string().optional(),
   sku: z.string().min(1, "Variant SKU is required"),
-  attributes: z.record(z.string()).default({}),
+  attributes: z.record(z.string(), z.string()).default({}),
   price: z.number().positive().nullable().optional(),
   salePrice: z.number().positive().nullable().optional(),
   stock: z.number().int().min(0).default(0),

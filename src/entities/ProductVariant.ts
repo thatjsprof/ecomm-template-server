@@ -5,11 +5,13 @@ import {
   ManyToOne,
   OneToMany,
   JoinColumn,
+  Unique,
 } from "typeorm";
 import { Product } from "./Product";
 import { OrderItem } from "./OrderItem";
 
 @Entity("product_variants")
+@Unique(["productId", "sku"])
 export class ProductVariant {
   @PrimaryGeneratedColumn("uuid")
   id!: string;
@@ -21,7 +23,8 @@ export class ProductVariant {
   @JoinColumn({ name: "productId" })
   product!: Product;
 
-  @Column({ type: "varchar", unique: true })
+  /** Unique within a product — not across the whole catalog */
+  @Column({ type: "varchar" })
   sku!: string;
 
   // e.g. { "Size": "M", "Color": "Black" }
