@@ -26,6 +26,8 @@ jobs:
             cd /var/www/alurd-backend
             git fetch origin main
             git reset --hard origin/main
+            # Avoid ENOTEMPTY races from a half-updated node_modules tree
+            rm -rf node_modules
             npm ci
             npm run build
             pm2 restart alurd-api --update-env
