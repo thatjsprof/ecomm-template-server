@@ -1,9 +1,11 @@
 import { Router, Request, Response } from "express";
+import { IsNull, Not } from "typeorm";
 import { z } from "zod";
 import { AppDataSource } from "../data-source";
 import { Order, PaymentStatus } from "../entities";
 import { success, error } from "../utils/response";
 import { validate } from "../middleware/validate";
+import { authenticate, requireAdmin } from "../middleware/auth";
 import { param } from "../utils/helpers";
 import {
   initializeFlutterwave,
@@ -21,6 +23,73 @@ const orders = () => AppDataSource.getRepository(Order);
 
 const initSchema = z.object({
   orderId: z.string().min(1, "Order ID is required"),
+});
+
+router.get("/admin/stats", authenticate, requireAdmin, async (_req, res) => {
+  try {
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const [allTime, thisMonth] = await Promise.all([
+      orders()
+        .createQueryBuilder("o")
+        .select("COALESCE(SUM(o.total::numeric), 0)", "revenue")
+        .addSelect("COUNT(*)", "paidOrders")
+        .where("o.paymentStatus = :status", { status: PaymentStatus.SUCCESS })
+        .getRawOne<{ revenue: string; paidOrders: string }>(),
+      orders()
+        .createQueryBuilder("o")
+        .select("COALESCE(SUM(o.total::numeric), 0)", "revenue")
+        .addSelect("COUNT(*)", "paidOrders")
+        .where("o.paymentStatus = :status", { status: PaymentStatus.SUCCESS })
+        .andWhere("o.createdAt >= :monthStart", { monthStart })
+        .getRawOne<{ revenue: string; paidOrders: string }>(),
+    ]);
+
+    return success(res, {
+      revenueTotal: Number(allTime?.revenue || 0),
+      revenueThisMonth: Number(thisMonth?.revenue || 0),
+      paidOrders: Number(allTime?.paidOrders || 0),
+      paidOrdersThisMonth: Number(thisMonth?.paidOrders || 0),
+    });
+  } catch (err) {
+    console.error(err);
+    return error(res, "Failed to fetch payment stats", 500);
+  }
+});
+
+router.get("/admin", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await orders().findAndCount({
+      where: { paymentReference: Not(IsNull()) },
+      skip,
+      take: limit,
+      order: { createdAt: "DESC" },
+    });
+
+    return success(res, {
+      payments: items.map((order) => ({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        customerName: order.customerName,
+        customerEmail: order.customerEmail,
+        total: order.total,
+        paymentProvider: order.paymentProvider,
+        paymentReference: order.paymentReference,
+        paymentStatus: order.paymentStatus,
+        createdAt: order.createdAt,
+      })),
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) || 1 },
+    });
+  } catch (err) {
+    console.error(err);
+    return error(res, "Failed to fetch payments", 500);
+  }
 });
 
 router.post("/flutterwave", validate(initSchema), async (req, res) => {
