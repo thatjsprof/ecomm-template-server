@@ -34,6 +34,10 @@ export class Collection {
   @Column({ type: "boolean", default: false })
   showInHero!: boolean;
 
+  /** Hero CTA button label */
+  @Column({ type: "varchar", default: "Shop Now" })
+  ctaLabel!: string;
+
   @Column({ type: "int", default: 0 })
   sortOrder!: number;
 

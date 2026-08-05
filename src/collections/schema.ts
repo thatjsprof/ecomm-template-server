@@ -6,6 +6,7 @@ export const createCollectionSchema = z.object({
   image: z.string().nullable().optional(),
   active: z.boolean().optional(),
   showInHero: z.boolean().optional(),
+  ctaLabel: z.string().min(1).max(60).optional(),
   sortOrder: z.number().int().optional(),
   productIds: z.array(z.string().uuid()).optional(),
 });

@@ -116,7 +116,8 @@ router.post(
   validate(createCollectionSchema),
   async (req, res) => {
     try {
-      const { name, description, image, active, showInHero, sortOrder, productIds } = req.body;
+      const { name, description, image, active, showInHero, ctaLabel, sortOrder, productIds } =
+        req.body;
       let slug = slugify(name);
       const existing = await collections().findOne({ where: { slug } });
       if (existing) {
@@ -130,6 +131,7 @@ router.post(
         image: image || null,
         active: active ?? true,
         showInHero: showInHero ?? false,
+        ctaLabel: (ctaLabel || "Shop Now").trim() || "Shop Now",
         sortOrder: sortOrder ?? 0,
       });
 
@@ -164,7 +166,8 @@ router.put(
         return error(res, "Collection not found", 404);
       }
 
-      const { name, description, image, active, showInHero, sortOrder, productIds } = req.body;
+      const { name, description, image, active, showInHero, ctaLabel, sortOrder, productIds } =
+        req.body;
 
       if (name && name !== existing.name) {
         existing.name = name;
@@ -174,6 +177,9 @@ router.put(
       if (image !== undefined) existing.image = image;
       if (active !== undefined) existing.active = active;
       if (showInHero !== undefined) existing.showInHero = showInHero;
+      if (ctaLabel !== undefined) {
+        existing.ctaLabel = ctaLabel.trim() || "Shop Now";
+      }
       if (sortOrder !== undefined) existing.sortOrder = sortOrder;
 
       await attachProducts(existing, productIds);
