@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { In } from "typeorm";
+import { In, Not } from "typeorm";
 import { AppDataSource } from "../data-source";
-import { Coupon, Order, OrderItem, Product, ProductVariant, Address, ShippingOption, OrderStatus } from "../entities";
+import { Coupon, Order, OrderItem, Product, ProductVariant, Address, ShippingOption, OrderStatus, PaymentStatus } from "../entities";
 import { success, error } from "../utils/response";
 import { generateOrderNumber, param } from "../utils/helpers";
 import { getVariantPrice } from "../utils/pricing";
@@ -178,7 +178,10 @@ router.post(
 router.get("/my", authenticate, async (req: AuthRequest, res) => {
   try {
     const items = await orders().find({
-      where: { userId: req.user!.id },
+      where: {
+        userId: req.user!.id,
+        status: Not(OrderStatus.PENDING),
+      },
       order: { createdAt: "DESC" },
       relations: { items: { product: true, variant: true } },
     });
@@ -197,7 +200,7 @@ router.get("/my/:id", authenticate, async (req: AuthRequest, res) => {
       relations: { items: { product: true, variant: true } },
     });
 
-    if (!order) {
+    if (!order || order.status === OrderStatus.PENDING) {
       return error(res, "Order not found", 404);
     }
 
@@ -280,5 +283,38 @@ router.patch(
     }
   }
 );
+
+router.delete("/:id", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const existing = await orders().findOne({
+      where: { id: param(req.params.id) },
+      relations: { items: true },
+    });
+
+    if (!existing) {
+      return error(res, "Order not found", 404);
+    }
+
+    await AppDataSource.transaction(async (manager) => {
+      // Paid orders already reduced stock — put it back when removing the sale.
+      if (existing.paymentStatus === PaymentStatus.SUCCESS) {
+        for (const item of existing.items || []) {
+          if (item.variantId) {
+            await manager.increment(ProductVariant, { id: item.variantId }, "stock", item.quantity);
+          } else {
+            await manager.increment(Product, { id: item.productId }, "stock", item.quantity);
+          }
+        }
+      }
+
+      await manager.remove(existing);
+    });
+
+    return success(res, { id: existing.id });
+  } catch (err) {
+    console.error(err);
+    return error(res, "Failed to delete order", 500);
+  }
+});
 
 export default router;
