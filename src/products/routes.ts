@@ -218,6 +218,7 @@ router.post(
         stock: data.stock,
         sku: data.sku,
         images: data.images || [],
+        optionConfig: data.optionConfig ?? null,
         featured: data.featured,
         newArrival: data.newArrival,
         active: data.active,

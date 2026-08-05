@@ -41,6 +41,16 @@ export class Product {
   @Column("text", { array: true, default: () => "'{}'" })
   images!: string[];
 
+  /**
+   * Option definitions for the admin matrix / storefront selectors.
+   * e.g. [{ name: "Color", values: [{ value: "Black", image: "https://..." }] }]
+   */
+  @Column({ type: "jsonb", nullable: true })
+  optionConfig!: Array<{
+    name: string;
+    values: Array<{ value: string; image?: string | null }>;
+  }> | null;
+
   @Column({ type: "boolean", default: false })
   featured!: boolean;
 

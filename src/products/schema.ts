@@ -10,6 +10,16 @@ export const variantSchema = z.object({
   active: z.boolean().default(true),
 });
 
+export const optionValueSchema = z.object({
+  value: z.string().min(1),
+  image: z.string().nullable().optional(),
+});
+
+export const optionConfigSchema = z.object({
+  name: z.string().min(1),
+  values: z.array(optionValueSchema).default([]),
+});
+
 export const createProductSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().min(1, "Description is required"),
@@ -18,6 +28,7 @@ export const createProductSchema = z.object({
   stock: z.number().int().min(0, "Stock cannot be negative"),
   sku: z.string().min(1, "SKU is required"),
   images: z.array(z.string()).default([]),
+  optionConfig: z.array(optionConfigSchema).nullable().optional(),
   featured: z.boolean().default(false),
   newArrival: z.boolean().default(false),
   active: z.boolean().default(true),
