@@ -11,6 +11,7 @@ import { siteConfig } from "./config/site";
 import authRoutes from "./auth/routes";
 import productRoutes from "./products/routes";
 import categoryRoutes from "./categories/routes";
+import collectionRoutes from "./collections/routes";
 import orderRoutes from "./orders/routes";
 import paymentRoutes from "./payments/routes";
 import uploadRoutes from "./uploads/routes";
@@ -52,6 +53,7 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/collections", collectionRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/upload", uploadRoutes);

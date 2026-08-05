@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import {
   User,
   Category,
+  Collection,
   Product,
   ProductVariant,
   Order,
@@ -23,6 +24,7 @@ export const AppDataSource = new DataSource({
   entities: [
     User,
     Category,
+    Collection,
     Product,
     ProductVariant,
     Order,

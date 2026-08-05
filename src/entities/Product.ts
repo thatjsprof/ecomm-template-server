@@ -5,10 +5,12 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  ManyToMany,
   OneToMany,
   JoinColumn,
 } from "typeorm";
 import { Category } from "./Category";
+import { Collection } from "./Collection";
 import { OrderItem } from "./OrderItem";
 import { ProductVariant } from "./ProductVariant";
 
@@ -66,6 +68,9 @@ export class Product {
   @ManyToOne(() => Category, (category) => category.products)
   @JoinColumn({ name: "categoryId" })
   category!: Category;
+
+  @ManyToMany(() => Collection, (collection) => collection.products)
+  collections!: Collection[];
 
   @OneToMany(() => ProductVariant, (variant) => variant.product, { cascade: true })
   variants!: ProductVariant[];
