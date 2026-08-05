@@ -26,7 +26,7 @@ export const createProductSchema = z.object({
   price: z.number().positive("Price must be positive"),
   salePrice: z.number().positive().nullable().optional(),
   stock: z.number().int().min(0, "Stock cannot be negative"),
-  sku: z.string().min(1, "SKU is required"),
+  sku: z.string().min(1).optional(),
   images: z.array(z.string()).default([]),
   optionConfig: z.array(optionConfigSchema).nullable().optional(),
   featured: z.boolean().default(false),

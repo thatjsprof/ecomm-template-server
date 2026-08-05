@@ -216,7 +216,7 @@ router.post(
         price: data.price,
         salePrice: data.salePrice ?? null,
         stock: data.stock,
-        sku: data.sku,
+        sku: data.sku?.trim() || slug.toUpperCase(),
         images: data.images || [],
         optionConfig: data.optionConfig ?? null,
         featured: data.featured,
@@ -260,6 +260,14 @@ router.put(
 
       if (data.name && data.name !== existing.name) {
         data.slug = slugify(data.name);
+        if (!data.sku) {
+          data.sku = data.slug.toUpperCase();
+        }
+      }
+
+      // Never clear sku if client omits it
+      if (data.sku === undefined) {
+        delete data.sku;
       }
 
       products().merge(existing, data);
