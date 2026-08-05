@@ -29,6 +29,13 @@ jobs:
             npm ci
             npm run build
             pm2 restart alurd-api --update-env
-            sleep 2
-            curl -fsS http://127.0.0.1:4000/api/health
-            echo
+            for i in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:4000/api/health; then
+                echo
+                exit 0
+              fi
+              sleep 1
+            done
+            echo "alurd-api health check failed"
+            pm2 logs alurd-api --lines 40 --nostream || true
+            exit 1
