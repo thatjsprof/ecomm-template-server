@@ -22,7 +22,11 @@ export const siteConfig = {
     adminEmail: process.env.SEED_ADMIN_EMAIL || "admin@example.com",
     adminPassword: process.env.SEED_ADMIN_PASSWORD || "admin123",
   },
-
+  whatsapp: {
+    enabled: true,
+    phone: "2348012345678",
+    message: "Hi! I'd like to know more about your products.",
+  },
   email: {
     /** Resend "from" address — verify domain in Resend dashboard for production */
     from: process.env.RESEND_FROM || "Atelier <onboarding@resend.dev>",
