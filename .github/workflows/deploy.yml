@@ -3,7 +3,6 @@ name: Deploy backend
 on:
   push:
     branches: [main]
-  workflow_dispatch:
 
 concurrency:
   group: deploy-backend
@@ -25,7 +24,9 @@ jobs:
           script: |
             set -euo pipefail
             cd /var/www/alurd-backend
-            git fetch origin main
+            rm -f .git/refs/remotes/origin/main.lock
+            git remote prune origin || true
+            git fetch --force origin main:refs/remotes/origin/main
             git reset --hard origin/main
             rm -rf node_modules
             npm ci
